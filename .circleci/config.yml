@@ -238,14 +238,14 @@ jobs:
           id: ${CIRCLE_WORKFLOW_ID:0:7}
           when: on_fail
           
-   deploy-frontend:
-     docker:
-       - image: circleci/node:13.8.0
-     steps:
-       - checkout
-       - attach_workspace:
-           at: .
-       - run:
+  deploy-frontend:
+    docker:
+     - image: circleci/node:13.8.0
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
           name: Install AWS CLI dependencies
           working_directory: /tmp
           command: |
@@ -253,32 +253,32 @@ jobs:
             curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
             unzip awscliv2.zip
             sudo ./aws/install
-       - run:
-           name: Rebuild frontend with backend API Url
-           working_directory: ./frontend
-           command: |
-             export BACKEND_IP="35.175.135.178"
-             export API_URL="http://${BACKEND_IP}:3030"
-             echo "API_URL = ${API_URL}"
-             echo API_URL="http://${BACKEND_IP}:3030" >> .env
-             cat .env
-       - run:
-           name: Deploy frontend objects to S3
-           working_directory: ./frontend
-           command: |
-             npm install
-             npm run build
-             aws s3 cp ./dist "s3://udapeople-${CIRCLE_WORKFLOW_ID:0:7}" --recursive
-       - persist_to_workspace:
-           root: .
-           paths:
-             - frontend/dist
-       - destroy_environment:
-           id: ${CIRCLE_WORKFLOW_ID:0:7}
-           when: on_fail
-       - revert_migrations:
-           id: ${CIRCLE_WORKFLOW_ID:0:7}
-           when: on_fail
+      - run:
+          name: Rebuild frontend with backend API Url
+          working_directory: ./frontend
+          command: |
+            export BACKEND_IP="35.175.135.178"
+            export API_URL="http://${BACKEND_IP}:3030"
+            echo "API_URL = ${API_URL}"
+            echo API_URL="http://${BACKEND_IP}:3030" >> .env
+            cat .env
+      - run:
+          name: Deploy frontend objects to S3
+          working_directory: ./frontend
+          command: |
+            npm install
+            npm run build
+            aws s3 cp ./dist "s3://udapeople-${CIRCLE_WORKFLOW_ID:0:7}" --recursive
+      - persist_to_workspace:
+          root: .
+          paths:
+            - frontend/dist
+      - destroy_environment:
+          id: ${CIRCLE_WORKFLOW_ID:0:7}
+          when: on_fail
+      - revert_migrations:
+          id: ${CIRCLE_WORKFLOW_ID:0:7}
+          when: on_fail
   
   deploy-backend:
     docker:
