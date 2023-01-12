@@ -40,7 +40,7 @@ commands:
           name: Revert migrations
           working_directory: ./backend
           command: |
-            SUCCESS=$(curl --insecure  https://kvdb.io/BzUqvogoRkCbHHNnskRgSK/migration_<< parameters.workflow_id >>)
+            SUCCESS=$(curl --insecure  https://kvdb.io/BzUqvogoRkCbHHNnskRgSK/migration_<< parameters.id >>)
             echo $SUCCESS
             if [[ "$SUCCESS" == "success" ]]
             then
