@@ -227,27 +227,30 @@ jobs:
     docker:
       - image: circleci/node:13.8.0
     steps:
-      - checkout
-      - attach_workspace:
-          at: .
+      - checkout 
+      - restore_cache:
+          keys: [backend-build] 
       - run:
           name: Run migrations
-          working_directory: ./backend
           command: |
+            # Your code here
+            cd backend
             npm install
+            echo "RUN MIGRATIONS"
             npm run migrations > migrations_dump.txt
+            echo "RUN MIGRATIONS COMPLETED"
       - run:
-          name: Send migration results to KVDB
-          working_directory: ./backend
+          name: Send migration results to memstash
           command: |
-              if grep -q "has been executed successfully." migrations_dump.txt
-              then
-                echo "DB migration was successful, will update kvdb..."
-                curl --insecure https://kvdb.io/BzUqvogoRkCbHHNnskRgSK/migration_${CIRCLE_WORKFLOW_ID:0:7}  -d '1'
-                echo "WorkflowID=${CIRCLE_WORKFLOW_ID:0:7}"
-              else
-                echo "DB migration failed, please verify setup! Probably the database already exists. Verify setup!"
-              fi
+            cat ~/project/backend/migrations_dump.txt
+            if grep -q "has been executed successfully." migrations_dump.txt
+            then
+              echo "DB migration was successful, will update kvdb..."
+              curl --insecure https://kvdb.io/BzUqvogoRkCbHHNnskRgSK/migration_${CIRCLE_WORKFLOW_ID:0:7}  -d '1'
+              echo "WorkflowID=${CIRCLE_WORKFLOW_ID:0:7}"
+            else
+              echo "DB migration failed, please verify setup! Probably the database already exists. Verify setup!"
+            fi
       - destroy_environment:
           id: ${CIRCLE_WORKFLOW_ID:0:7}
           when: on_fail
@@ -271,7 +274,7 @@ jobs:
           name: Rebuild frontend with backend API Url
           working_directory: ./frontend
           command: |
-            export BACKEND_IP=$(tail -1 ~/project/.circleci/ansible/inventory.txt)
+            export BACKEND_IP=$(aws ec2 describe-instances --query 'Reservations[*].Instances[*].PublicIpAddress' --filters "Name=tag:Name,Values=backend-${CIRCLE_WORKFLOW_ID:0:7}" output text)
             export API_URL="http://${BACKEND_IP}:3030"
             echo "API_URL = ${API_URL}"
             echo API_URL="http://${BACKEND_IP}:3030" >> .env
