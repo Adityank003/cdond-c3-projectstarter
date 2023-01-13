@@ -185,12 +185,12 @@ jobs:
             aws ec2 describe-instances \
               --query 'Reservations[*].Instances[*].PublicIpAddress' \
               --filters "Name=tag:project,Values=udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}" \
-              --output text >> inventory
+              --output text >> inventory.txt
             cat inventory
       - persist_to_workspace:
           root: .
           paths:
-            - .circleci/ansible/inventory
+            - .circleci/ansible/inventory.txt
       - destroy_environment:
           id: ${CIRCLE_WORKFLOW_ID:0:7}
           when: on_fail
@@ -239,9 +239,13 @@ jobs:
           name: Send migration results to KVDB
           working_directory: ./backend
           command: |
-              echo "DB migration was successful, will update kvdb..."
-              curl --insecure https://kvdb.io/BzUqvogoRkCbHHNnskRgSK/migration_${CIRCLE_WORKFLOW_ID:0:7}  -d '1'
-              echo "WorkflowID=${CIRCLE_WORKFLOW_ID:0:7}"
+              if grep -q "has been executed successfully." migrations_dump.txt
+              then
+                echo "DB migration was successful, will update kvdb..."
+                curl --insecure https://kvdb.io/BzUqvogoRkCbHHNnskRgSK/migration_${CIRCLE_WORKFLOW_ID:0:7}  -d '1'
+                echo "WorkflowID=${CIRCLE_WORKFLOW_ID:0:7}"
+              else
+                echo "DB migration failed, please verify setup! Probably the database already exists. Verify setup!"
       - destroy_environment:
           id: ${CIRCLE_WORKFLOW_ID:0:7}
           when: on_fail
