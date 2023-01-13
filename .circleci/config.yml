@@ -205,10 +205,11 @@ jobs:
       - add_ssh_keys:
           fingerprints: ["3e:5a:06:d1:af:f6:62:08:72:13:b0:d4:fe:d7:cb:85"]
       - attach_workspace:
-          at: .
+          at: ~/
+      - run: pwd
+      - run: cat ~/project/.circleci/ansible/inventory.txt
       - run:
           name: Install dependencies
-          working_directory: ./.circleci/ansible
           command: |
             apk add tar 
             apk add gzip
@@ -261,7 +262,8 @@ jobs:
     steps:
       - checkout
       - attach_workspace:
-          at: .
+          at: ~/
+      - run: cat ~/project/.circleci/ansible/inventory.txt
       - run:
           name: Install AWS CLI dependencies
           working_directory: /tmp
@@ -306,7 +308,8 @@ jobs:
       - add_ssh_keys:
           fingerprints: ["3e:5a:06:d1:af:f6:62:08:72:13:b0:d4:fe:d7:cb:85"]
       - attach_workspace:
-          at: .
+          at: ~/
+      - run: cat ~/project/.circleci/ansible/inventory.txt
       - run:
           name: Install dependencies
           working_directory: /tmp
