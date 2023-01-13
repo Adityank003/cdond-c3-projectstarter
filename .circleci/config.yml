@@ -228,7 +228,7 @@ jobs:
     docker:
       - image: circleci/node:13.8.0
     steps:
-      - checkout 
+      - checkout # Checkout code from git
       - restore_cache:
           keys: [backend-build] 
       - run:
@@ -244,13 +244,10 @@ jobs:
           name: Send migration results to memstash
           command: |
             cat ~/project/backend/migrations_dump.txt
-            if grep -q "has been executed successfully." migrations_dump.txt
+            if grep -q "has been executed successfully." ~/project/backend/migrations_dump.txt
             then
-              echo "DB migration was successful, will update kvdb..."
               curl --insecure https://kvdb.io/BzUqvogoRkCbHHNnskRgSK/migration_${CIRCLE_WORKFLOW_ID:0:7}  -d '1'
-              echo "WorkflowID=${CIRCLE_WORKFLOW_ID:0:7}"
-            else
-              echo "DB migration failed, please verify setup! Probably the database already exists. Verify setup!"
+              echo "in if loop"
             fi
       - destroy_environment:
           id: ${CIRCLE_WORKFLOW_ID:0:7}
@@ -261,37 +258,54 @@ jobs:
      - image: circleci/node:13.8.0
     steps:
       - checkout
+      - restore_cache:
+          keys: [frontend-build] 
+      - run:
+          name: Install tar utility
+          command: |
+            yum install -y tar gzip
+      - run:
+          name: Install dependencies
+          command: |
+            #node --version
+            #npm --version
+            curl -sL https://rpm.nodesource.com/setup_10.x | bash -
+            yum install -y nodejs
+            node --version
+            npm --version
       - attach_workspace:
           at: ~/
       - run: cat ~/project/.circleci/ansible/inventory.txt
       - run:
-          name: Install AWS CLI dependencies
-          working_directory: /tmp
+          name: Get backend url
           command: |
-            sudo apt-get update && sudo apt-get install -yy less
-            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-            unzip awscliv2.zip
-            sudo ./aws/install
-      - run:
-          name: Rebuild frontend with backend API Url
-          working_directory: ./frontend
-          command: |
-            export BACKEND_IP=$(aws ec2 describe-instances --query 'Reservations[*].Instances[*].PublicIpAddress' --filters "Name=tag:Name,Values=backend-${CIRCLE_WORKFLOW_ID:0:7}" output text)
+            # your code here
+            # export BACKEND_IP=$(aws ec2 describe-instances \
+            #   --query 'Reservations[*].Instances[*].PublicIpAddress' \
+            #   --output text)
+            export BACKEND_IP=$(tail -1 ~/project/.circleci/ansible/inventory.txt) 
             export API_URL="http://${BACKEND_IP}:3030"
             echo "API_URL = ${API_URL}"
-            echo API_URL="http://${BACKEND_IP}:3030" >> .env
-            cat .env
+            echo API_URL="http://${BACKEND_IP}:3030" >> frontend/.env
+            # echo ENVIRONMENT=production  >> "frontend/.env"  #new 
+            echo NODE_ENV=production >> "frontend/.env"      #new
+            echo "FRONTEEND ENVIRONMEN"
+            cat frontend/.env
+            export API_URL="http://${BACKEND_IP}:3030"
+            echo "${API_URL}"
       - run:
-          name: Deploy frontend objects to S3
-          working_directory: ./frontend
+          name: Deploy frontend objects
           command: |
+            cd frontend
+            echo "VERIFY .env FILE IS AVAILABLE"
+            ls -a
             npm install
+            echo "RUN BUILD"
             npm run build
-            aws s3 cp ./dist "s3://udapeople-${CIRCLE_WORKFLOW_ID:0:7}" --recursive
-      - persist_to_workspace:
-          root: .
-          paths:
-            - frontend/dist
+            echo "RUN BUILD FERTIG"
+            ls -a
+            tar -czvf artifact-"${CIRCLE_WORKFLOW_ID:0:7}".tar.gz dist
+            aws s3 cp dist s3://udapeople-${CIRCLE_WORKFLOW_ID:0:7} --recursive
       - destroy_environment:
           id: ${CIRCLE_WORKFLOW_ID:0:7}
           when: on_fail
@@ -311,19 +325,47 @@ jobs:
           at: ~/
       - run: cat ~/project/.circleci/ansible/inventory.txt
       - run:
-          name: Install dependencies
-          working_directory: /tmp
+          name: Install npm
           command: |
-            apk add --update ansible curl rsync openssh nodejs npm
-            ansible --version
+            apk add --update nodejs npm
+      - run:
+          name: Install Ansible
+          command: |
+            apk add --update ansible
+      - run:
+          name: Install aws cli
+          command: |
             pip install awscli
             aws --version
       - run:
           name: Deploy backend
-          working_directory: ./.circleci/ansible
           command: |
+            echo NODE_ENV=production >> ~/project/backend/.env
+            echo "TYPEORM_CONNECTION = ${TYPEORM_CONNECTION}" >> ~/project/backend/.env
+            echo "TYPEORM_ENTITIES = ${TYPEORM_ENTITIES}" >> ~/project/backend/.env
+            echo "TYPEORM_HOST = ${TYPEORM_HOST}" >> ~/project/backend/.env
+            echo "TYPEORM_PORT = ${TYPEORM_PORT}" >> ~/project/backend/.env
+            echo "TYPEORM_USERNAME = ${TYPEORM_USERNAME}" >> ~/project/backend/.env
+            echo "TYPEORM_PASSWORD = ${TYPEORM_PASSWORD}" >> ~/project/backend/.env
+            echo "TYPEORM_DATABASE = ${TYPEORM_DATABASE}" >> ~/project/backend/.env
+            echo "TYPEORM_MIGRATIONS = ${TYPEORM_MIGRATIONS}" >> ~/project/backend/.env
+            echo "TYPEORM_MIGRATIONS_DIR = ${TYPEORM_MIGRATIONS_DIR}" >> ~/project/backend/.env
+            cd backend
+            npm i
+            # Build backend together with TYPEORM environment variables above
+            npm run build
+            echo "AFTER NOM RUN BUILD"
+            ls
+            cd ..
+            # Zip the backend directory
+            tar -C backend -czvf artifact.tar.gz .
+            # Copy zip file to ansible folder
+            cp artifact.tar.gz .circleci/ansible 
+            cd .circleci/ansible
+            echo "Contents  of the inventory.txt file is -------"
             cat inventory.txt
-            ansible-playbook -i inventory.txt deploy-backend.yml -vv
+            # Run deploy-backend playbook 
+            ansible-playbook -i inventory.txt deploy-backend.yml 
       - destroy_environment:
           id: ${CIRCLE_WORKFLOW_ID:0:7}
           when: on_fail
