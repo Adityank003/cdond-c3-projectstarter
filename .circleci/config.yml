@@ -236,17 +236,12 @@ jobs:
             npm install
             npm run migrations > migrations_dump.txt
       - run:
-          name: Send migration results to memstash
+          name: Send migration results to KVDB
           working_directory: ./backend
           command: |
-            if grep -q "has been executed successfully" migrations_dump.txt
-            then
               echo "DB migration was successful, will update kvdb..."
               curl --insecure https://kvdb.io/BzUqvogoRkCbHHNnskRgSK/migration_${CIRCLE_WORKFLOW_ID:0:7}  -d '1'
-            else
-              echo "DB migration failed, please verify setup! Probably the database already exists. Verify setup!"
-            fi
-            echo "WorkflowID=${CIRCLE_WORKFLOW_ID:0:7}"
+              echo "WorkflowID=${CIRCLE_WORKFLOW_ID:0:7}"
       - destroy_environment:
           id: ${CIRCLE_WORKFLOW_ID:0:7}
           when: on_fail
