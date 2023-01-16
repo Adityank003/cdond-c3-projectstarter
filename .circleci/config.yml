@@ -415,12 +415,12 @@ jobs:
             else
               return 1
             fi
-#       - destroy_environment:
-#           id: ${CIRCLE_WORKFLOW_ID:0:7}
-#           when: on_fail
-#       - revert_migrations:
-#           id: ${CIRCLE_WORKFLOW_ID:0:7}
-#           when: on_fail
+      - destroy_environment:
+          id: ${CIRCLE_WORKFLOW_ID:0:7}
+          when: on_fail
+      - revert_migrations:
+          id: ${CIRCLE_WORKFLOW_ID:0:7}
+          when: on_fail
           
   cloudfront-update:
     docker:
@@ -458,6 +458,39 @@ jobs:
           id: ${CIRCLE_WORKFLOW_ID:0:7}
           when: on_fail
           
+  cleanup:
+    docker:
+      - image: amazon/aws-cli # Docker image here
+    steps:
+      - checkout # Checkout code from git
+      - run:
+          name: Install tar utility
+          command: |
+            yum install -y tar gzip
+      - attach_workspace:
+          at: ~/
+      - run:
+          name: Get old stack workflow id
+          command: |
+            cat old_id.txt
+            export OldWorkflowID=$(tail -1 old_id.txt)
+            echo $OldWorkflowID
+      - run:
+          name: Remove old stacks and files
+          command: |
+            export OldWorkflowID=$(tail -1 old_id.txt)
+            echo Old ID $OldWorkflowID
+            echo Current ID ${CIRCLE_WORKFLOW_ID:0:7}
+            if [[ $OldWorkflowID == ${CIRCLE_WORKFLOW_ID:0:7} ]];
+            then
+              echo "CLEANUP FAILED"  
+            else
+              echo "DELETE CONFIRMED"
+              aws s3 rm s3://udapeople-$OldWorkflowID --recursive
+              aws cloudformation delete-stack --stack-name udapeople-backend-$OldWorkflowID
+              aws cloudformation delete-stack --stack-name udapeople-frontend-$OldWorkflowID
+            fi
+            
 # Invoke jobs via workflows
 # See: https://circleci.com/docs/2.0/configuration-reference/#workflows
 workflows:
