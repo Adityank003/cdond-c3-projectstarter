@@ -1,0 +1,2 @@
+Github link: https://github.com/Adityank003/cdond-c3-projectstarter
+S3 bucket URL: http://udapeople-99c4f6d.s3-website-us-east-1.amazonaws.com/#/employees
